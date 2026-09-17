@@ -1,28 +1,32 @@
 """
 utils/graphiti_client.py
 
-Shared Graphiti client setup — used by all three task scripts.
+Shared Graphiti client — using Ollama as the local LLM + embedder backend.
 
-WHAT IS GRAPHITI?
-  Graphiti is an open-source framework for building TEMPORAL KNOWLEDGE GRAPHS.
-  Unlike a vector DB (which stores chunks of text), Graphiti stores:
-    - Entities  : people, places, organisations, concepts
-    - Relations : edges between entities ("Alice WORKS_AT Company X")
-    - Episodes  : the raw events/messages that generated those facts
-    - Time      : every fact knows WHEN it became true and WHEN it changed
+WHAT IS OLLAMA?
+  Ollama is a tool that runs open-source LLMs (Mistral, Llama, etc.) locally.
+  It exposes an OpenAI-compatible API at http://localhost:11434/v1
+  So any code written for OpenAI works with Ollama — just change the base_url.
 
-  This allows an AI agent to answer questions like:
-    "What did Alice's role change to in June?"
-    "Which company was Bob working at last year?"
-    "What is the CURRENT status of project X?"
+HOW GRAPHITI USES THE LLM:
+  When you call graphiti.add_episode("Alice joined Acme Corp as CTO today"),
+  Graphiti internally calls the LLM to extract:
+    - Entities : Alice (Person), Acme Corp (Organisation)
+    - Relation : Alice --[JOINED_AS CTO]--> Acme Corp
+    - Time     : valid_at = today's date
+  These are stored as nodes + edges in Neo4j.
+
+MODELS USED:
+  LLM      : mistral (via Ollama) — entity + relationship extraction
+  Embedder : nomic-embed-text (via Ollama) — semantic similarity search
+  Both run 100% locally. Zero API keys required.
 """
 
 import os
 from dotenv import load_dotenv
 from graphiti_core import Graphiti
-from graphiti_core.llm_client.gemini_client import GeminiClient, LLMConfig
-from graphiti_core.embedder.gemini import GeminiEmbedder, GeminiEmbedderConfig
-from graphiti_core.cross_encoder.gemini_reranker_client import GeminiRerankerClient
+from graphiti_core.llm_client.openai_client import OpenAIClient, LLMConfig
+from graphiti_core.embedder.openai import OpenAIEmbedder, OpenAIEmbedderConfig
 
 load_dotenv()
 
@@ -30,48 +34,45 @@ load_dotenv()
 def get_graphiti_client() -> Graphiti:
     """
     Returns a fully configured Graphiti client connected to:
-      - Neo4j  (graph database backend, running via Docker)
-      - Gemini (LLM for entity + relationship extraction)
-      - Gemini (embedder for semantic search)
-      - Gemini (reranker for result quality)
+      - Neo4j        (graph database, running via Docker)
+      - Ollama/Mistral  (LLM for entity + relationship extraction, local)
+      - Ollama/nomic-embed-text (embedder for semantic search, local)
 
-    HOW GRAPHITI USES THE LLM:
-      When you call graphiti.add_episode("Alice joined Acme Corp as CTO today"),
-      Graphiti internally calls the LLM to extract:
-        - Entities : Alice (Person), Acme Corp (Organisation)
-        - Relation : Alice --[JOINED_AS CTO]--> Acme Corp
-        - Time     : valid_at = today's date
-      These are then stored as nodes + edges in Neo4j.
+    WHY OPENAI-COMPATIBLE CLIENT FOR OLLAMA?
+      Ollama's API is 100% compatible with OpenAI's API format.
+      Graphiti's OpenAIClient works with any OpenAI-compatible endpoint —
+      just point base_url to Ollama instead of api.openai.com.
+      No code change needed in the rest of the pipeline.
     """
-    api_key = os.getenv("GEMINI_API_KEY", "")
-    if not api_key or api_key == "your-gemini-api-key-here":
-        raise ValueError(
-            "GEMINI_API_KEY not set!\n"
-            "Get a free key at: https://aistudio.google.com/apikey\n"
-            "Then add it to your .env file."
-        )
-
-    neo4j_uri  = os.getenv("NEO4J_URI",     "bolt://localhost:7687")
-    neo4j_user = os.getenv("NEO4J_USER",    "neo4j")
-    neo4j_pass = os.getenv("NEO4J_PASSWORD","graphiti123")
+    ollama_url  = os.getenv("OLLAMA_BASE_URL",  "http://localhost:11434/v1")
+    llm_model   = os.getenv("LLM_MODEL",        "mistral")
+    embed_model = os.getenv("EMBED_MODEL",       "nomic-embed-text")
+    neo4j_uri   = os.getenv("NEO4J_URI",         "bolt://localhost:7687")
+    neo4j_user  = os.getenv("NEO4J_USER",        "neo4j")
+    neo4j_pass  = os.getenv("NEO4J_PASSWORD",    "graphiti123")
 
     return Graphiti(
         uri      = neo4j_uri,
         user     = neo4j_user,
         password = neo4j_pass,
 
-        # LLM for entity/relationship extraction from raw text
-        llm_client = GeminiClient(
-            api_key = api_key,
-            config  = LLMConfig(model="gemini-2.0-flash"),
+        # LLM: Mistral via Ollama (OpenAI-compatible endpoint)
+        llm_client = OpenAIClient(
+            config = LLMConfig(
+                api_key  = "ollama",      # any non-empty string works with Ollama
+                model    = llm_model,
+                base_url = ollama_url,
+            )
         ),
 
-        # Embedding model for semantic similarity search
-        embedder = GeminiEmbedder(
-            api_key = api_key,
-            config  = GeminiEmbedderConfig(model="text-embedding-004"),
+        # Embedder: nomic-embed-text via Ollama
+        # nomic-embed-text produces 768-dim vectors (vs 1536 for OpenAI ada-002)
+        embedder = OpenAIEmbedder(
+            config = OpenAIEmbedderConfig(
+                api_key       = "ollama",
+                model         = embed_model,
+                base_url      = ollama_url,
+                embedding_dim = 768,      # nomic-embed-text output dimension
+            )
         ),
-
-        # Reranker to improve result quality after retrieval
-        reranker = GeminiRerankerClient(api_key=api_key),
     )

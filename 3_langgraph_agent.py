@@ -5,9 +5,9 @@ WHAT THIS DOES:
   Builds a LangGraph agent that uses Graphiti as its LONG-TERM MEMORY.
 
   Unlike a stateless LLM call, this agent:
-    1. Stores every conversation turn into the knowledge graph
-    2. Retrieves relevant facts from the graph before answering
-    3. Answers with temporally-aware context ("as of March 2022...")
+    1. Retrieves relevant facts from the knowledge graph before answering
+    2. Answers with temporally-aware context ("as of March 2022...")
+    3. Saves every conversation turn into the graph
     4. Remembers facts ACROSS sessions (persistent graph memory)
 
 THE GRAPH:
@@ -18,7 +18,7 @@ THE GRAPH:
   [retrieve_context_node]   ← search Graphiti for relevant facts
      |
      v
-  [generate_node]           ← LLM answers using graph facts as context
+  [generate_node]           ← Mistral (via Ollama) answers using graph facts
      |
      v
   [save_to_graph_node]      ← persist this conversation turn to Graphiti
@@ -28,15 +28,15 @@ THE GRAPH:
 
 STATE:
   class AgentState(TypedDict):
-    messages    : list of conversation messages (Human/AI)
-    query       : current user question
-    graph_context: facts retrieved from Graphiti
-    answer      : LLM's response
+    query         : current user question
+    graph_context : facts retrieved from Graphiti
+    answer        : LLM's response
+    session_id    : identifies this conversation session
 
-ZEP CLOUD vs GRAPHITI (SELF-HOSTED):
-  Both are shown in this file:
-    - Section A: Self-hosted Graphiti + Neo4j (what we set up today)
-    - Section B: Zep Cloud (add ZEP_API_KEY to .env for this section)
+MODELS (all local, no API keys):
+  LLM      : Mistral (via Ollama Docker container)
+  Embedder : nomic-embed-text (via Ollama Docker container)
+  Graph DB : Neo4j (via Docker container)
 
 RUN:
   python 3_langgraph_agent.py "Who is the current CTO?"
@@ -47,19 +47,22 @@ import asyncio
 import os
 import sys
 from datetime import datetime, timezone
-from typing import TypedDict, Annotated
+from typing import TypedDict
 from dotenv import load_dotenv
 
-import google.generativeai as genai
+from openai import OpenAI
 from langgraph.graph import StateGraph, START, END
 
 from utils.graphiti_client import get_graphiti_client
 
 load_dotenv()
 
-# Configure Gemini for the generate node
-genai.configure(api_key=os.getenv("GEMINI_API_KEY", ""))
-llm = genai.GenerativeModel("gemini-2.0-flash")
+# Ollama client — same OpenAI interface, just local
+ollama_client = OpenAI(
+    base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1"),
+    api_key="ollama",   # any non-empty string
+)
+LLM_MODEL = os.getenv("LLM_MODEL", "mistral")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -173,9 +176,12 @@ Question: {state['query']}
 
 Answer:"""
 
-    print(f"  Calling Gemini 2.0 Flash...")
-    response = llm.generate_content(prompt)
-    answer   = response.text.strip()
+    print(f"  Calling Mistral via Ollama...")
+    response = ollama_client.chat.completions.create(
+        model    = LLM_MODEL,
+        messages = [{"role": "user", "content": prompt}],
+    )
+    answer = response.choices[0].message.content.strip()
 
     return {"answer": answer}
 
@@ -305,7 +311,7 @@ async def main():
     print(f"\n  Query      : {query}")
     print(f"  Session    : {session_id}")
     print(f"  Memory     : Graphiti (Neo4j @ bolt://localhost:7687)")
-    print(f"  LLM        : Gemini 2.0 Flash")
+    print(f"  LLM        : Mistral (via Ollama @ localhost:11434)")
 
     app = build_agent_graph()
 
