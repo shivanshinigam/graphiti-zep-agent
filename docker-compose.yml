@@ -1,0 +1,25 @@
+version: "3.8"
+
+services:
+  neo4j:
+    image: neo4j:5.26.0
+    container_name: graphiti-neo4j
+    ports:
+      - "7474:7474"   # Browser UI  → http://localhost:7474
+      - "7687:7687"   # Bolt driver → bolt://localhost:7687
+    environment:
+      - NEO4J_AUTH=neo4j/graphiti123
+      - NEO4J_PLUGINS=["apoc"]
+      - NEO4J_apoc_export_file_enabled=true
+      - NEO4J_apoc_import_file_enabled=true
+      - NEO4J_apoc_import_file_use__neo4j__config=true
+    volumes:
+      - neo4j_data:/data
+    healthcheck:
+      test: ["CMD", "cypher-shell", "-u", "neo4j", "-p", "graphiti123", "RETURN 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  neo4j_data:

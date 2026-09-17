@@ -1,0 +1,8 @@
+# Core
+graphiti-core[google-genai]>=0.9.0
+python-dotenv
+langgraph
+langchain-core
+
+# Neo4j driver (used internally by graphiti-core)
+neo4j>=5.0.0
