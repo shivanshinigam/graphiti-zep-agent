@@ -52,6 +52,7 @@ from dotenv import load_dotenv
 
 from openai import OpenAI
 from langgraph.graph import StateGraph, START, END
+from graphiti_core.search.search_filters import SearchFilters, DateFilter, ComparisonOperator
 
 from utils.graphiti_client import get_graphiti_client
 
@@ -62,7 +63,7 @@ ollama_client = OpenAI(
     base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1"),
     api_key="ollama",   # any non-empty string
 )
-LLM_MODEL = os.getenv("LLM_MODEL", "mistral")
+LLM_MODEL = os.getenv("LLM_MODEL", "qwen2.5:0.5b")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -108,9 +109,11 @@ async def retrieve_context_node(state: AgentState) -> dict:
     graphiti = get_graphiti_client()
 
     results = await graphiti.search(
-        query          = state["query"],
-        reference_time = datetime.now(timezone.utc),   # "as of right now"
-        num_results    = 5,
+        query         = state["query"],
+        search_filter = SearchFilters(
+            valid_at=[[DateFilter(date=datetime.now(timezone.utc), comparison_operator=ComparisonOperator.less_than_equal)]]
+        ),
+        num_results   = 5,
     )
 
     await graphiti.close()
@@ -176,7 +179,7 @@ Question: {state['query']}
 
 Answer:"""
 
-    print(f"  Calling Mistral via Ollama...")
+    print(f"  Calling {LLM_MODEL} via Ollama...")
     response = ollama_client.chat.completions.create(
         model    = LLM_MODEL,
         messages = [{"role": "user", "content": prompt}],

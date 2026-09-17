@@ -20,6 +20,7 @@ RUN:
 import asyncio
 from datetime import datetime, timezone
 from dotenv import load_dotenv
+from graphiti_core.search.search_filters import SearchFilters, DateFilter, ComparisonOperator
 from utils.graphiti_client import get_graphiti_client
 
 load_dotenv()
@@ -69,7 +70,9 @@ async def run_queries():
     print("\n[Query 2] Who was CEO of NovaTech in 2020?")
     results = await graphiti.search(
         "Who was the CEO of NovaTech?",
-        reference_time=datetime(2020, 6, 1, tzinfo=timezone.utc),  # anchor to June 2020
+        search_filter=SearchFilters(
+            valid_at=[[DateFilter(date=datetime(2020, 6, 1, tzinfo=timezone.utc), comparison_operator=ComparisonOperator.less_than_equal)]]
+        ),
     )
     print_results(results, "Who was CEO of NovaTech in 2020?")
 

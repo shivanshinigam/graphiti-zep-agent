@@ -5,9 +5,9 @@
 
 set -e
 
-echo "Pulling Mistral (LLM for entity extraction)..."
-echo "  Size: ~4.1GB — this will take a few minutes on first run."
-docker exec graphiti-ollama ollama pull mistral
+echo "Pulling phi3:mini (LLM for entity extraction)..."
+echo "  Size: ~2.3GB — Microsoft's Phi-3 Mini, fast and efficient."
+docker exec graphiti-ollama ollama pull phi3:mini
 
 echo ""
 echo "Pulling nomic-embed-text (embedding model)..."

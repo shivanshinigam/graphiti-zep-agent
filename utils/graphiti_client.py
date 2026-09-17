@@ -24,11 +24,19 @@ MODELS USED:
 
 import os
 from dotenv import load_dotenv
+from openai import AsyncOpenAI
 from graphiti_core import Graphiti
 from graphiti_core.llm_client.openai_client import OpenAIClient, LLMConfig
 from graphiti_core.embedder.openai import OpenAIEmbedder, OpenAIEmbedderConfig
+from graphiti_core.cross_encoder.client import CrossEncoderClient
 
 load_dotenv()
+
+class DummyCrossEncoder(CrossEncoderClient):
+    """A no-op reranker to prevent Graphiti from requiring OpenAI credentials."""
+    async def rank(self, query: str, passages: list[str]) -> list[tuple[str, float]]:
+        # Just return original order with dummy scores
+        return [(p, 1.0) for p in passages]
 
 
 def get_graphiti_client() -> Graphiti:
@@ -45,7 +53,7 @@ def get_graphiti_client() -> Graphiti:
       No code change needed in the rest of the pipeline.
     """
     ollama_url  = os.getenv("OLLAMA_BASE_URL",  "http://localhost:11434/v1")
-    llm_model   = os.getenv("LLM_MODEL",        "mistral")
+    llm_model   = os.getenv("LLM_MODEL",        "qwen2.5:0.5b")
     embed_model = os.getenv("EMBED_MODEL",       "nomic-embed-text")
     neo4j_uri   = os.getenv("NEO4J_URI",         "bolt://localhost:7687")
     neo4j_user  = os.getenv("NEO4J_USER",        "neo4j")
@@ -61,7 +69,13 @@ def get_graphiti_client() -> Graphiti:
             config = LLMConfig(
                 api_key  = "ollama",      # any non-empty string works with Ollama
                 model    = llm_model,
+                small_model = llm_model,  # prevent fallback to gpt-4.1-nano
                 base_url = ollama_url,
+            ),
+            client = AsyncOpenAI(
+                api_key  = "ollama",
+                base_url = ollama_url,
+                timeout  = 3600.0,
             )
         ),
 
@@ -70,9 +84,17 @@ def get_graphiti_client() -> Graphiti:
         embedder = OpenAIEmbedder(
             config = OpenAIEmbedderConfig(
                 api_key       = "ollama",
-                model         = embed_model,
+                embedding_model = embed_model,
                 base_url      = ollama_url,
                 embedding_dim = 768,      # nomic-embed-text output dimension
+            ),
+            client = AsyncOpenAI(
+                api_key  = "ollama",
+                base_url = ollama_url,
+                timeout  = 3600.0,
             )
         ),
+
+        # Cross-encoder (reranker): Not strictly needed for basic search, using Dummy
+        cross_encoder = DummyCrossEncoder(),
     )

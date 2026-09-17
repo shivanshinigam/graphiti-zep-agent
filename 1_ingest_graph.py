@@ -56,44 +56,11 @@ EPISODES = [
         "type"               : EpisodeType.text,
     },
     {
-        "name"               : "ep_002_series_a",
-        "episode"            : "NovaTech raised a $5M Series A round led by BlueRock Ventures in January 2020. "
-                               "The company hired 12 new engineers and opened an office in Berlin.",
-        "source_description" : "Press release",
-        "reference_time"     : datetime(2020, 1, 20, tzinfo=timezone.utc),
-        "type"               : EpisodeType.text,
-    },
-    {
         "name"               : "ep_003_cto_change",
         "episode"            : "Leon Müller stepped down as CTO in March 2022 to start his own company. "
                                "Aisha Okonkwo was appointed as the new CTO of NovaTech.",
         "source_description" : "Internal announcement",
         "reference_time"     : datetime(2022, 3, 1, tzinfo=timezone.utc),
-        "type"               : EpisodeType.text,
-    },
-    {
-        "name"               : "ep_004_product_launch",
-        "episode"            : "NovaTech launched RouteAI v2.0 in September 2022. "
-                               "The product uses reinforcement learning to optimise last-mile delivery routes. "
-                               "Aisha Okonkwo led the engineering team for this release.",
-        "source_description" : "Product launch blog post",
-        "reference_time"     : datetime(2022, 9, 10, tzinfo=timezone.utc),
-        "type"               : EpisodeType.text,
-    },
-    {
-        "name"               : "ep_005_acquisition",
-        "episode"            : "NovaTech acquired LogiSense, a Berlin-based fleet tracking startup, "
-                               "for €8M in February 2024. NovaTech now has 200 employees across 3 offices.",
-        "source_description" : "Acquisition announcement",
-        "reference_time"     : datetime(2024, 2, 14, tzinfo=timezone.utc),
-        "type"               : EpisodeType.text,
-    },
-    {
-        "name"               : "ep_006_ceo_update",
-        "episode"            : "Priya Sharma transitioned from CEO to Executive Chairperson in July 2024. "
-                               "Marcus Tan, previously VP of Sales, was promoted to CEO.",
-        "source_description" : "Board announcement",
-        "reference_time"     : datetime(2024, 7, 1, tzinfo=timezone.utc),
         "type"               : EpisodeType.text,
     },
 ]
@@ -104,7 +71,7 @@ async def ingest_episodes():
     print("=" * 60)
     print(f"Episodes to ingest : {len(EPISODES)}")
     print(f"Scenario           : NovaTech company history (2018–2024)")
-    print(f"LLM                : Gemini 2.0 Flash (entity + relation extraction)")
+    print(f"LLM                : phi3:mini via Ollama (entity + relation extraction)")
     print(f"Graph DB           : Neo4j (bolt://localhost:7687)")
     print("=" * 60)
 
