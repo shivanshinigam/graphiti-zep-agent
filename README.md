@@ -203,6 +203,100 @@ python 3_langgraph_agent.py
 
 ---
 
+## 📄 Real Execution Logs & Outputs
+
+<details>
+<summary><b>Click to expand real terminal execution output (Task 1, Task 2, and Task 3)</b></summary>
+
+```text
+============================================================
+TASK 1 EXECUTION OUTPUT: KNOWLEDGE GRAPH INGESTION
+============================================================
+
+Starting Task 1: Building Temporal Knowledge Graph
+============================================================
+Episodes to ingest : 2
+Scenario           : NovaTech company history (2018–2024)
+LLM                : qwen2.5:0.5b via Ollama (entity + relation extraction)
+Graph DB           : Neo4j (bolt://localhost:7687)
+============================================================
+
+Initialising graph schema and indices...
+Schema ready.
+
+[1/2] Ingesting: ep_001_founding
+  Source : Company founding document
+  Date   : March 2018
+  Text   : NovaTech was founded in 2018 by Priya Sharma and Leon Müller. Priya became CEO and Leon became CTO...
+  Graphiti extracted entities + relations and stored in Neo4j.
+
+[2/2] Ingesting: ep_003_cto_change
+  Source : Internal announcement
+  Date   : March 2022
+  Text   : Leon Müller stepped down as CTO in March 2022 to start his own company. Aisha Okonkwo was appointed as the new CTO of NovaTech...
+  Graphiti extracted entities + relations and stored in Neo4j.
+
+============================================================
+Task 1 Complete!
+  Episodes ingested : 2
+  Time span covered : 2018 – 2024
+  Explore the graph : http://localhost:7474
+  Login             : neo4j / graphiti123
+
+
+============================================================
+TASK 2 EXECUTION OUTPUT: TEMPORAL GRAPH QUERIES
+============================================================
+
+[Query 1] Who is the current CTO of NovaTech?
+  Query : Who is the current CTO of NovaTech?
+  Found : 3 result(s)
+  Result #1: Aisha Okonkwo was appointed as the new CTO of NovaTech. [Valid: 2022-03-01 → present]
+
+[Query 2] Who was CEO of NovaTech in 2020?
+  Query : Who was CEO of NovaTech in 2020?
+  Found : 1 result(s)
+  Result #1: Priya became CEO and Leon became CTO. [Valid: 2018-03-15 → present]
+
+============================================================
+Task 2 Complete!
+
+
+============================================================
+TASK 3 EXECUTION OUTPUT: LANGGRAPH AGENT WITH GRAPHITI MEMORY
+============================================================
+
+============================================================
+  LangGraph Agent with Graphiti Memory
+  START → retrieve_context → generate → save_to_graph → END
+============================================================
+
+  Query      : Who is the current CTO of NovaTech?
+  Session    : session_001
+  Memory     : Graphiti (Neo4j @ bolt://localhost:7687)
+  LLM        : qwen2.5:0.5b (via Ollama @ localhost:11434)
+
+[Node 1: RETRIEVE FROM GRAPHITI]
+  Query: Who is the current CTO of NovaTech?
+  Retrieved 2 facts from Graphiti:
+    - Aisha Okonkwo was appointed as the new CTO of NovaTech.  [valid: 2022-03-01 → present]
+    - Priya became CEO and Leon became CTO.  [valid: 2018-03-15 → present]
+
+[Node 2: GENERATE ANSWER]
+  Calling qwen2.5:0.5b via Ollama...
+
+[Node 3: SAVE TURN TO GRAPHITI]
+  Turn saved to Graphiti — agent will remember this in future sessions.
+
+============================================================
+  FINAL ANSWER: Aisha Okonkwo is the current CTO of NovaTech (appointed March 2022).
+============================================================
+```
+
+</details>
+
+---
+
 ## 📊 Graphiti (Local Open Source) vs. Zep Cloud
 
 | Parameter | 🏠 Self-Hosted Graphiti | ☁️ Zep Cloud |
